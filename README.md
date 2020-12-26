@@ -1,0 +1,1 @@
+Discord bot for handling VoN DKP/Spells/etc

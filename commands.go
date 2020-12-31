@@ -123,6 +123,16 @@ func init() {
 	}
 	botCommands = append(botCommands, readRules)
 	//------------------------------------------------
+	testCommand := BotCommand{
+		command:     "!test",
+		help:        "Used for administrative purposes only",
+		action:      TestCommand,
+		dmOnly:      true,
+		priviledged: true,
+		hidden:      true,
+	}
+	botCommands = append(botCommands, testCommand)
+	//------------------------------------------------
 	// changeConfig := BotCommand{
 	// 	command:     "!config",
 	// 	help:        "Let's you modify configuration without modifying code",
@@ -604,4 +614,12 @@ func ReadRules(s *discordgo.Session, m *discordgo.MessageCreate, message []strin
 		return response
 	}
 	return "Unable to read from Google Sheets"
+}
+
+// TestCommand is for debugging message input
+func TestCommand(s *discordgo.Session, m *discordgo.MessageCreate, message []string) (response string) {
+	l := LogInit("TestCommand-commands.go")
+	defer l.End()
+	response = fmt.Sprintf("Session: %#v MessageCreate: %#v Message: %#v\n", s, m, message)
+	return response
 }

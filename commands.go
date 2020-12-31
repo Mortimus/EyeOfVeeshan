@@ -620,6 +620,6 @@ func ReadRules(s *discordgo.Session, m *discordgo.MessageCreate, message []strin
 func TestCommand(s *discordgo.Session, m *discordgo.MessageCreate, message []string) (response string) {
 	l := LogInit("TestCommand-commands.go")
 	defer l.End()
-	response = fmt.Sprintf("Session: %#v MessageCreate: %#v Message: %#v\n", s, m, message)
+	response = fmt.Sprintf("Session: %#v\n\nMessageCreate: %#v\n\nMessage: %#v\n", s, m, message)
 	return response
 }

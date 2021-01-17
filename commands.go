@@ -322,6 +322,9 @@ func LookupDKP(s *discordgo.Session, m *discordgo.MessageCreate, message []strin
 	defer l.End()
 	if len(message) > 1 {
 		result := lookupPlayer(message[1])
+		if result.name == "" {
+			return LookupDKPByClass(s, m, message)
+		}
 		response = fmt.Sprintf("%s(%s):\t%d", result.name, result.rank, result.dkp)
 		return response
 	} else {

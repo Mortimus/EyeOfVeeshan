@@ -306,31 +306,15 @@ type Player struct {
 	level      string
 	lastRaid   string
 	attendance string
-	dkp        string
+	dkp        int
 }
 
 // ByDKP is for sorting players dkp
-type ByDKP []Player
+type byDKP []Player
 
-func (a ByDKP) Len() int { return len(a) }
-func (a ByDKP) Less(i, j int) bool {
-	if a[i].dkp == "" {
-		a[i].dkp = "0"
-	}
-	if a[j].dkp == "" {
-		a[j].dkp = "0"
-	}
-	iDKP, err := strconv.Atoi(a[i].dkp)
-	if err != nil {
-		return false
-	}
-	jDKP, err := strconv.Atoi(a[j].dkp)
-	if err != nil {
-		return false
-	}
-	return iDKP < jDKP
-}
-func (a ByDKP) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a byDKP) Len() int           { return len(a) }
+func (a byDKP) Less(i, j int) bool { return a[i].dkp < a[j].dkp }
+func (a byDKP) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
 // LookupDKP find the message[1] user's DKP on the known google spreadsheet
 func LookupDKP(s *discordgo.Session, m *discordgo.MessageCreate, message []string) (response string) {
@@ -338,7 +322,7 @@ func LookupDKP(s *discordgo.Session, m *discordgo.MessageCreate, message []strin
 	defer l.End()
 	if len(message) > 1 {
 		result := lookupPlayer(message[1])
-		response = fmt.Sprintf("%s(%s): %s", result.name, result.rank, result.dkp)
+		response = fmt.Sprintf("%s(%s): %d", result.name, result.rank, result.dkp)
 		return response
 	} else {
 		l.ErrorF("DKP command ran without a player: %s", message)
@@ -358,12 +342,34 @@ func LookupDKPByClass(s *discordgo.Session, m *discordgo.MessageCreate, message 
 		} else {
 			result = lookupPlayersByClass(message[1])
 		}
-		sort.Sort(ByDKP(result))
+		l.TraceF("DKP Pre-sort: %#+v\n", result)
+		sort.Sort(sort.Reverse(byDKP(result)))
+
+		// sort.SliceStable(result, func(i, j int) bool {
+		// 	if result[i].dkp == "" {
+		// 		result[i].dkp = "0"
+		// 	}
+		// 	if result[j].dkp == "" {
+		// 		result[j].dkp = "0"
+		// 	}
+		// 	iDKP, err := strconv.Atoi(result[i].dkp)
+		// 	if err != nil {
+		// 		return false
+		// 	}
+		// 	jDKP, err := strconv.Atoi(result[j].dkp)
+		// 	if err != nil {
+		// 		return false
+		// 	}
+		// 	l.TraceF("iName: %s iDKP: %s jName: %s jDKP: %s\n", result[i].name, result[i].dkp, result[j].name, result[j].dkp)
+		// 	l.TraceF("Less than?: %b", iDKP < jDKP)
+		// 	return iDKP < jDKP
+		// })
+		l.TraceF("DKP Post-sort: %#+v\n", result)
 		for _, res := range result {
-			if res.dkp == "" {
-				res.dkp = "0"
-			}
-			response = fmt.Sprintf("%s%s(%s): %s\n", response, res.name, res.rank, res.dkp)
+			// if res.dkp == "" {
+			// 	res.dkp = "0"
+			// }
+			response = fmt.Sprintf("%s%s(%s): %d\n", response, res.name, res.rank, res.dkp)
 		}
 		return response
 	} else {
@@ -455,7 +461,12 @@ func lookupPlayersByClass(tarClass string) []Player {
 
 					players[index].lastRaid = fmt.Sprintf("%v", row[configuration.DKPSheetLastRaidCol])
 					players[index].attendance = fmt.Sprintf("%v", row[configuration.DKPSheetAttendanceCol])
-					players[index].dkp = fmt.Sprintf("%v", row[configuration.DKPSheetDKPCol])
+					// players[index].dkp = fmt.Sprintf("%v", row[configuration.DKPSheetDKPCol])
+					dkp, err := strconv.Atoi(fmt.Sprintf("%v", row[configuration.DKPSheetDKPCol]))
+					if err != nil {
+						dkp = 0
+					}
+					players[index].dkp = dkp
 					// player = Player{
 					// 	class:      fmt.Sprintf("%v", row[configuration.DKPSRosterSheetClassCol]),
 					// 	rank:       fmt.Sprintf("%v", row[configuration.DKPSRosterSheetRankCol]),
@@ -525,7 +536,7 @@ func lookupPlayer(tar string) Player {
 	var player Player
 	player.attendance = "No Attendance Found"
 	player.class = "Unknown"
-	player.dkp = "0"
+	// player.dkp = "0"
 	player.lastRaid = "No Raids"
 	player.level = "0"
 	player.rank = "Unknown"
@@ -596,7 +607,12 @@ func lookupPlayer(tar string) Player {
 
 				player.lastRaid = fmt.Sprintf("%v", row[configuration.DKPSheetLastRaidCol])
 				player.attendance = fmt.Sprintf("%v", row[configuration.DKPSheetAttendanceCol])
-				player.dkp = fmt.Sprintf("%v", row[configuration.DKPSheetDKPCol])
+				// player.dkp = fmt.Sprintf("%v", row[configuration.DKPSheetDKPCol])
+				dkp, err := strconv.Atoi(fmt.Sprintf("%v", row[configuration.DKPSheetDKPCol]))
+				if err != nil {
+					dkp = 0
+				}
+				player.dkp = dkp
 				// player = Player{
 				// 	class:      fmt.Sprintf("%v", row[configuration.DKPSRosterSheetClassCol]),
 				// 	rank:       fmt.Sprintf("%v", row[configuration.DKPSRosterSheetRankCol]),

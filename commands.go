@@ -7,10 +7,13 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/davecgh/go-spew/spew"
 	"google.golang.org/api/sheets/v4"
 )
 
@@ -132,6 +135,26 @@ func init() {
 		hidden:      true,
 	}
 	botCommands = append(botCommands, testCommand)
+	//------------------------------------------------
+	sendCommand := BotCommand{
+		command:     "!send",
+		help:        "Used for administrative purposes only",
+		action:      SendMessage,
+		dmOnly:      true,
+		priviledged: true,
+		hidden:      true,
+	}
+	botCommands = append(botCommands, sendCommand)
+	//------------------------------------------------
+	dkpType := BotCommand{
+		command:     configuration.CommDKPClassCommand,
+		help:        configuration.CommDKPClassHelp,
+		action:      LookupDKPByClass,
+		dmOnly:      configuration.CommDKPClassDMOnly,
+		priviledged: configuration.CommDKPClassPriv,
+		hidden:      configuration.CommDKPClassHidden,
+	}
+	botCommands = append(botCommands, dkpType)
 	//------------------------------------------------
 	// changeConfig := BotCommand{
 	// 	command:     "!config",
@@ -286,17 +309,211 @@ type Player struct {
 	dkp        string
 }
 
+// ByDKP is for sorting players dkp
+type ByDKP []Player
+
+func (a ByDKP) Len() int { return len(a) }
+func (a ByDKP) Less(i, j int) bool {
+	if a[i].dkp == "" {
+		a[i].dkp = "0"
+	}
+	if a[j].dkp == "" {
+		a[j].dkp = "0"
+	}
+	iDKP, err := strconv.Atoi(a[i].dkp)
+	if err != nil {
+		return false
+	}
+	jDKP, err := strconv.Atoi(a[j].dkp)
+	if err != nil {
+		return false
+	}
+	return iDKP < jDKP
+}
+func (a ByDKP) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+
 // LookupDKP find the message[1] user's DKP on the known google spreadsheet
 func LookupDKP(s *discordgo.Session, m *discordgo.MessageCreate, message []string) (response string) {
 	l := LogInit("LookupDKP-commands.go")
 	defer l.End()
 	if len(message) > 1 {
 		result := lookupPlayer(message[1])
-		return result.dkp
+		response = fmt.Sprintf("%s(%s): %s", result.name, result.rank, result.dkp)
+		return response
 	} else {
 		l.ErrorF("DKP command ran without a player: %s", message)
 	}
 	return ""
+}
+
+// LookupDKPByClass find the message[1] class DKP on the known google spreadsheet
+func LookupDKPByClass(s *discordgo.Session, m *discordgo.MessageCreate, message []string) (response string) {
+	l := LogInit("LookupDKPByClass-commands.go")
+	defer l.End()
+	if len(message) > 1 {
+		l.TraceF("Looking up dkp for classe(s): %s\n", message[1])
+		var result []Player
+		if len(message) > 2 {
+			result = lookupPlayersByClass(message[1] + " " + message[2]) // stupid shadow knights
+		} else {
+			result = lookupPlayersByClass(message[1])
+		}
+		sort.Sort(ByDKP(result))
+		for _, res := range result {
+			if res.dkp == "" {
+				res.dkp = "0"
+			}
+			response = fmt.Sprintf("%s%s(%s): %s\n", response, res.name, res.rank, res.dkp)
+		}
+		return response
+	} else {
+		l.ErrorF("DKP command ran without a player: %s", message)
+	}
+	return ""
+}
+
+func lookupPlayersByClass(tarClass string) []Player {
+	l := LogInit("lookupPlayerByClass-commands.go")
+	defer l.End()
+	tarClass = strings.ToLower(tarClass)
+	classes := getClassesByType(tarClass)
+	var players []Player
+	l.TraceF("Finding players based on classes: %#+v", classes)
+
+	spreadsheetID := configuration.DKPSheetURL
+	readRange := configuration.DKPSRosterSheetName
+	resp, err := srv.Spreadsheets.Values.Get(spreadsheetID, readRange).Do()
+	if err != nil {
+		l.ErrorF("Unable to retrieve data from sheet: %v", err)
+		return []Player{}
+		// log.Fatalf("Unable to retrieve data from sheet: %v", err)
+	}
+
+	if len(resp.Values) == 0 {
+		l.ErrorF("No player lookup response: %v", resp)
+		// log.Println("No data found.")
+	} else {
+		// var lastClass string
+		for _, row := range resp.Values {
+			// if row[0] == "Necromancer" {
+			// 	fmt.Printf("%s: %s\n", row[2], row[6])
+			// }
+			// l.TraceF("Player: %s Target: %s", row[configuration.DKPSRosterSheetPlayerCol], strings.TrimSpace(tar))
+			pulledClass := fmt.Sprintf("%s", row[configuration.DKPSRosterSheetClassCol])
+			pulledClass = strings.ToLower(pulledClass)
+			for _, class := range classes {
+				if strings.TrimSpace(pulledClass) == strings.TrimSpace(class) {
+					player := Player{}
+					player.class = fmt.Sprintf("%v", row[configuration.DKPSRosterSheetClassCol])
+					player.rank = fmt.Sprintf("%v", row[configuration.DKPSRosterSheetRankCol])
+					player.name = fmt.Sprintf("%v", row[configuration.DKPSRosterSheetPlayerCol])
+					player.level = fmt.Sprintf("%v", row[configuration.DKPSRosterSheetLevelCol])
+					players = append(players, player)
+					continue
+				}
+			}
+		}
+		// if pulledClass == "" {
+		// 	l.ErrorF("Class not found on roster - %s", class)
+		// }
+	}
+	readRange = configuration.DKPSheetName
+	resp2, err := srv.Spreadsheets.Values.Get(spreadsheetID, readRange).Do()
+	if err != nil {
+		l.ErrorF("Unable to retrieve data from sheet 2nd pass: %v", err)
+		return []Player{}
+		// log.Fatalf("Unable to retrieve data from sheet: %v", err)
+	}
+
+	if len(resp2.Values) == 0 {
+		l.ErrorF("No player lookup response: %v", resp)
+		// log.Println("No data found.")
+	} else {
+		var lastClass string
+		for _, row := range resp2.Values {
+			// if row[0] == "Necromancer" {
+			// 	fmt.Printf("%s: %s\n", row[2], row[6])
+			// }
+			// name := fmt.Sprintf("%s", row[configuration.DKPSheetNameCol])
+			l.TraceF("lastClass: %s\n", lastClass)
+
+			if row[configuration.DKPSheetClassCol] != "" {
+				lastClass = fmt.Sprintf("%s", row[configuration.DKPSheetClassCol])
+				lastClass = strings.ToLower(lastClass)
+			}
+			for _, class := range classes {
+				if lastClass == strings.TrimSpace(class) {
+					name := fmt.Sprintf("%v", row[configuration.DKPSheetNameCol])
+					index := findPlayerIndexInArray(name, &players)
+					if index < 0 {
+						continue // We don't know who the fuck this is
+					}
+					// player.class = fmt.Sprintf("%v", row[configuration.DKPSRosterSheetClassCol])
+					// player.rank = fmt.Sprintf("%v", row[configuration.DKPSRosterSheetRankCol])
+					// player.name = fmt.Sprintf("%v", row[configuration.DKPSRosterSheetPlayerCol])
+					// player.level = fmt.Sprintf("%v", row[configuration.DKPSRosterSheetLevelCol])
+
+					players[index].lastRaid = fmt.Sprintf("%v", row[configuration.DKPSheetLastRaidCol])
+					players[index].attendance = fmt.Sprintf("%v", row[configuration.DKPSheetAttendanceCol])
+					players[index].dkp = fmt.Sprintf("%v", row[configuration.DKPSheetDKPCol])
+					// player = Player{
+					// 	class:      fmt.Sprintf("%v", row[configuration.DKPSRosterSheetClassCol]),
+					// 	rank:       fmt.Sprintf("%v", row[configuration.DKPSRosterSheetRankCol]),
+					// 	name:       fmt.Sprintf("%v", row[configuration.DKPSRosterSheetPlayerCol]),
+					// 	level:      fmt.Sprintf("%v", row[configuration.DKPSRosterSheetLevelCol]),
+					// 	// lastRaid:   fmt.Sprintf("%v", row[configuration.DKPSheetLastRaidCol]),
+					// 	// attendance: fmt.Sprintf("%v", row[configuration.DKPSheetAttendanceCol]),
+					// 	// dkp:        fmt.Sprintf("%v", row[configuration.DKPSheetDKPCol]),
+					// }
+					continue
+				}
+			}
+		}
+		// l.ErrorF("Player not found on DKP listing - %s", tar)
+	}
+
+	return players
+}
+
+func findPlayerIndexInArray(name string, players *[]Player) int {
+	l := LogInit("findPlayerIndexInArray-commands.go")
+	defer l.End()
+	for i, player := range *players {
+		if player.name == name {
+			return i
+		}
+	}
+	l.ErrorF("Could not find player: %s\n", name)
+	return -1
+}
+
+func getClassesByType(t string) []string {
+	switch t {
+	case "cloth":
+		return []string{"enchanter", "magician", "necromancer", "wizard"}
+	case "leather":
+		return []string{"beastlord", "druid", "monk"}
+	case "chain":
+		return []string{"berserker", "ranger", "rogue", "shaman"}
+	case "plate":
+		return []string{"bard", "cleric", "paladin", "shadow knight", "warrior"}
+	case "priest":
+		return []string{"cleric", "druid", "shaman"}
+	case "melee":
+		return []string{"bard", "beastlord", "berserker", "monk", "paladin", "ranger", "rogue", "shadow knight", "warrior"}
+	case "fist":
+		return []string{"beastlord", "monk"}
+	case "thief":
+		return []string{"bard", "rogue"}
+	case "knight":
+		return []string{"paladin", "shadow knight"}
+	case "deathtouch":
+		return []string{"ranger"}
+	case "tank":
+		return []string{"warrior", "paladin", "shadow knight"}
+	}
+	return []string{t} // default to just the class provided
+	// return nil
 }
 
 func lookupPlayer(tar string) Player {
@@ -620,6 +837,19 @@ func ReadRules(s *discordgo.Session, m *discordgo.MessageCreate, message []strin
 func TestCommand(s *discordgo.Session, m *discordgo.MessageCreate, message []string) (response string) {
 	l := LogInit("TestCommand-commands.go")
 	defer l.End()
-	response = fmt.Sprintf("Session: %#v\n\nMessageCreate: %#v\n\nMessage: %#v\n", s, m, message)
+	// response = fmt.Sprintf("Session: %#+v\n\nMessage: %s\n\nMessageCreate.message: %#+v\n", s, message, m.Message)
+	response = spew.Sdump(m, message)
+	l.InfoF(spew.Sdump(m, message))
+	return response
+}
+
+// SendMessage is for relaying messages to a specific channel
+func SendMessage(s *discordgo.Session, m *discordgo.MessageCreate, message []string) (response string) {
+	l := LogInit("SendMessage-commands.go")
+	defer l.End()
+	chanID := "794338730546167848"
+	// msg := message[1:]
+	s.ChannelMessageSend(chanID, strings.Join(message[1:], " "))
+	response = "Message relayed"
 	return response
 }

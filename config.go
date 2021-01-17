@@ -100,6 +100,11 @@ type Configuration struct {
 	CommRulesDMOnly            bool     `json:"CommRulesDMOnly"`  // Aradune Auctions krono API URL
 	CommRulesPriv              bool     `json:"CommRulesPriv"`    // Aradune Auctions krono API URL
 	CommRulesHidden            bool     `json:"CommRulesHidden"`
+	CommDKPClassCommand        string   `json:"CommDKPClassCommand"` // Aradune Auctions krono API URL
+	CommDKPClassHelp           string   `json:"CommDKPClassHelp"`    // Aradune Auctions krono API URL
+	CommDKPClassDMOnly         bool     `json:"CommDKPClassDMOnly"`  // Aradune Auctions krono API URL
+	CommDKPClassPriv           bool     `json:"CommDKPClassPriv"`    // Aradune Auctions krono API URL
+	CommDKPClassHidden         bool     `json:"CommDKPClassHidden"`
 }
 
 func init() {

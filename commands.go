@@ -322,7 +322,7 @@ func LookupDKP(s *discordgo.Session, m *discordgo.MessageCreate, message []strin
 	defer l.End()
 	if len(message) > 1 {
 		result := lookupPlayer(message[1])
-		response = fmt.Sprintf("%s(%s): %d", result.name, result.rank, result.dkp)
+		response = fmt.Sprintf("%s(%s):\t%d", result.name, result.rank, result.dkp)
 		return response
 	} else {
 		l.ErrorF("DKP command ran without a player: %s", message)
@@ -342,7 +342,7 @@ func LookupDKPByClass(s *discordgo.Session, m *discordgo.MessageCreate, message 
 		} else {
 			result = lookupPlayersByClass(message[1])
 		}
-		l.TraceF("DKP Pre-sort: %#+v\n", result)
+		// l.TraceF("DKP Pre-sort: %#+v\n", result)
 		sort.Sort(sort.Reverse(byDKP(result)))
 
 		// sort.SliceStable(result, func(i, j int) bool {
@@ -364,12 +364,12 @@ func LookupDKPByClass(s *discordgo.Session, m *discordgo.MessageCreate, message 
 		// 	l.TraceF("Less than?: %b", iDKP < jDKP)
 		// 	return iDKP < jDKP
 		// })
-		l.TraceF("DKP Post-sort: %#+v\n", result)
+		// l.TraceF("DKP Post-sort: %#+v\n", result)
 		for _, res := range result {
 			// if res.dkp == "" {
 			// 	res.dkp = "0"
 			// }
-			response = fmt.Sprintf("%s%s(%s): %d\n", response, res.name, res.rank, res.dkp)
+			response = fmt.Sprintf("%s%s(%s):\t%d\n", response, res.name, res.rank, res.dkp)
 		}
 		return response
 	} else {
@@ -462,7 +462,7 @@ func lookupPlayersByClass(tarClass string) []Player {
 					players[index].lastRaid = fmt.Sprintf("%v", row[configuration.DKPSheetLastRaidCol])
 					players[index].attendance = fmt.Sprintf("%v", row[configuration.DKPSheetAttendanceCol])
 					// players[index].dkp = fmt.Sprintf("%v", row[configuration.DKPSheetDKPCol])
-					dkp, err := strconv.Atoi(fmt.Sprintf("%v", row[configuration.DKPSheetDKPCol]))
+					dkp, err := strconv.Atoi(strings.ReplaceAll(fmt.Sprintf("%v", row[configuration.DKPSheetDKPCol]), ",", ""))
 					if err != nil {
 						dkp = 0
 					}
@@ -608,7 +608,7 @@ func lookupPlayer(tar string) Player {
 				player.lastRaid = fmt.Sprintf("%v", row[configuration.DKPSheetLastRaidCol])
 				player.attendance = fmt.Sprintf("%v", row[configuration.DKPSheetAttendanceCol])
 				// player.dkp = fmt.Sprintf("%v", row[configuration.DKPSheetDKPCol])
-				dkp, err := strconv.Atoi(fmt.Sprintf("%v", row[configuration.DKPSheetDKPCol]))
+				dkp, err := strconv.Atoi(strings.ReplaceAll(fmt.Sprintf("%v", row[configuration.DKPSheetDKPCol]), ",", ""))
 				if err != nil {
 					dkp = 0
 				}

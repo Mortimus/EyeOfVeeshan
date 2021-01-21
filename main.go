@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,8 +11,10 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
+	_ "github.com/go-sql-driver/mysql"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/sheets/v4"
@@ -290,4 +293,56 @@ func isPriviledged(s *discordgo.Session, userID string) bool {
 		}
 	}
 	return false
+}
+
+func connectDB() *sql.DB {
+	db, err := sql.Open("mysql", "root:friezor54@/peq")
+	if err != nil {
+		panic(err)
+	}
+	// Open doesn't open a connection. Validate DSN data:
+	err = db.Ping()
+	if err != nil {
+		panic(err.Error()) // proper error handling instead of panic in your app
+	}
+	db.SetConnMaxLifetime(time.Minute * 3)
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(10)
+
+	return db
+}
+
+func getResistsByMobName(name string, db *sql.DB) (NPC, error) {
+	var npc NPC
+	name = strings.ReplaceAll(name, " ", "_")
+	// Prepare statement for reading data NAME LIKE "%Invisibility%Undead"
+	name = fmt.Sprintf("%%%s%%", name)
+	stmtOut, err := db.Prepare("SELECT id,NAME,Level,MR,CR,DR,FR,PR,Corrup,PhR,slow_mitigation,special_abilities,npcspecialattks FROM npc_types WHERE name LIKE ?")
+	if err != nil {
+		return NPC{}, err
+	}
+	defer stmtOut.Close()
+	err = stmtOut.QueryRow(name).Scan(&npc.id, &npc.oName, &npc.level, &npc.mr, &npc.cr, &npc.dr, &npc.fr, &npc.pr, &npc.corrup, &npc.phr, &npc.slowMitigation, &npc.specialAbilities, &npc.npcSpecialAttacks)
+	if err != nil {
+		return NPC{}, err
+	}
+	return npc, nil
+}
+
+// NPC is a struct for holding mob data like resists, mitigation, special flags
+type NPC struct {
+	id                int
+	name              string // is a clean name without underscores or #'s
+	oName             string // contains the unclean name
+	level             int
+	mr                int
+	cr                int
+	dr                int
+	fr                int
+	pr                int
+	corrup            int
+	phr               int
+	slowMitigation    int
+	specialAbilities  string
+	npcSpecialAttacks string
 }

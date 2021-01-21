@@ -30,6 +30,7 @@ type Configuration struct {
 	AuthProviderx509CertURL string    `json:"auth_provider_x509_cert_url"` // Google Cert URL
 	ClientSecret            string    `json:"client_secret"`               // Google Client Secret
 	RedirectURIs            []string  `json:"redirect_uris"`               // Google Redirect URIs
+	SQLConnectionString     string    `json:"SQLConnectionString"`         // user:pass@/db
 	// --------
 	DKPSheetURL                string   `json:"DKPSheetURL"`                // String after https://docs.google.com/spreadsheets/d/ and before /edit
 	DKPSheetName               string   `json:"DKPSheetName"`               // Sheet Name for DKP

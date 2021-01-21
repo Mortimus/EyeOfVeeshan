@@ -444,7 +444,7 @@ func lookupPlayersByClass(tarClass string) []Player {
 			// 	fmt.Printf("%s: %s\n", row[2], row[6])
 			// }
 			// name := fmt.Sprintf("%s", row[configuration.DKPSheetNameCol])
-			l.TraceF("lastClass: %s\n", lastClass)
+			// l.TraceF("lastClass: %s\n", lastClass)
 
 			if row[configuration.DKPSheetClassCol] != "" {
 				lastClass = fmt.Sprintf("%s", row[configuration.DKPSheetClassCol])

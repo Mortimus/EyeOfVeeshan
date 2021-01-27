@@ -17,8 +17,15 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/calendar/v3"
 	"google.golang.org/api/sheets/v4"
 )
+
+// srv is the global to connect to google sheets
+var srv *sheets.Service
+
+// cal is the global to connect to google calendar
+var cal *calendar.Service
 
 // Retrieve a token, saves the token, then returns the generated client.
 func getClient(config *oauth2.Config) *http.Client {
@@ -148,7 +155,7 @@ func main() {
 	// }
 
 	// If modifying these scopes, delete your previously saved token.json.
-	config, err := google.ConfigFromJSON(bToken, "https://www.googleapis.com/auth/spreadsheets")
+	config, err := google.ConfigFromJSON(bToken, sheets.SpreadsheetsScope, calendar.CalendarReadonlyScope)
 	if err != nil {
 		l.FatalF("Unable to parse client secret file to config: %v", err)
 	}
@@ -157,6 +164,11 @@ func main() {
 	srv, err = sheets.New(client)
 	if err != nil {
 		l.FatalF("Unable retrieve Sheets client: %v", err)
+	}
+
+	cal, err = calendar.New(client)
+	if err != nil {
+		l.FatalF("Unable retrieve Calendar client: %v", err)
 	}
 
 	// Create a new Discord session using the provided bot token. os.Getenv("DiscordToken")
@@ -345,4 +357,43 @@ type NPC struct {
 	slowMitigation    int
 	specialAbilities  string
 	npcSpecialAttacks string
+}
+
+func getEvents(cal *calendar.Service, calID string, bDeleted bool, count int64, tFormat string) []Event {
+	t := time.Now().Format(time.RFC3339)
+	events, err := cal.Events.List(calID).ShowDeleted(false).SingleEvents(true).TimeMin(t).MaxResults(count).OrderBy("startTime").Do()
+	if err != nil {
+		log.Fatalf("Unable to retrieve next ten of the user's events: %v", err)
+	}
+	var es []Event
+	for _, item := range events.Items {
+		var e Event
+		startDate := item.Start.DateTime
+		if startDate == "" {
+			startDate = item.Start.Date
+		}
+		tStart, err := time.Parse(time.RFC3339, startDate)
+		endDate := item.End.DateTime
+		if endDate == "" {
+			endDate = item.End.Date
+		}
+		e.Start = tStart
+		tEnd, err := time.Parse(time.RFC3339, endDate)
+		if err != nil {
+			fmt.Printf(err.Error())
+		}
+		e.End = tEnd
+		e.Title = item.Summary
+		e.Desc = item.Description
+		es = append(es, e)
+	}
+	return es
+}
+
+// Event contains gcal info
+type Event struct {
+	Title string
+	Start time.Time
+	End   time.Time
+	Desc  string
 }

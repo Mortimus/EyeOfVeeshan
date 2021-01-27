@@ -105,7 +105,14 @@ type Configuration struct {
 	CommDKPClassHelp           string   `json:"CommDKPClassHelp"`    // Aradune Auctions krono API URL
 	CommDKPClassDMOnly         bool     `json:"CommDKPClassDMOnly"`  // Aradune Auctions krono API URL
 	CommDKPClassPriv           bool     `json:"CommDKPClassPriv"`    // Aradune Auctions krono API URL
-	CommDKPClassHidden         bool     `json:"CommDKPClassHidden"`
+	CommDKPClassHidden         bool     `json:"CommDKPClassHidden"`  // Is the DKP by class command hidden
+	RaidGCAL                   string   `json:"RaidGCAL"`            // string for the raiding google calendar
+	CommRaidCalCommand         string   `json:"CommRaidCalCommand"`  // Aradune Auctions krono API URL
+	CommRaidCalHelp            string   `json:"CommRaidCalHelp"`     // Aradune Auctions krono API URL
+	CommRaidCalDMOnly          bool     `json:"CommRaidCalDMOnly"`   // Aradune Auctions krono API URL
+	CommRaidCalPriv            bool     `json:"CommRaidCalPriv"`     // Aradune Auctions krono API URL
+	CommRaidCalHidden          bool     `json:"CommRaidCalHidden"`   // Is the DKP by class command hidden
+	RaidGCALLink               string   `json:"RaidGCALLink"`        // URL to gcal for people to add
 }
 
 func init() {

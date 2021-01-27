@@ -20,9 +20,6 @@ import (
 // BotAction is the function called when a BotCommand is triggered
 type BotAction func(s *discordgo.Session, m *discordgo.MessageCreate, message []string) (response string)
 
-// srv is the global to connect to google sheets
-var srv *sheets.Service
-
 // BotCommand contains everything for a bot response to a user
 type BotCommand struct {
 	command     string    // string to match in discord channel to trigger this command
@@ -155,6 +152,16 @@ func init() {
 		hidden:      configuration.CommDKPClassHidden,
 	}
 	botCommands = append(botCommands, dkpType)
+	//------------------------------------------------
+	raidCommand := BotCommand{
+		command:     configuration.CommRaidCalCommand,
+		help:        configuration.CommRaidCalHelp,
+		action:      GetRaids,
+		dmOnly:      configuration.CommRaidCalDMOnly,
+		priviledged: configuration.CommRaidCalPriv,
+		hidden:      configuration.CommRaidCalHidden,
+	}
+	botCommands = append(botCommands, raidCommand)
 	//------------------------------------------------
 	// changeConfig := BotCommand{
 	// 	command:     "!config",
@@ -870,5 +877,34 @@ func SendMessage(s *discordgo.Session, m *discordgo.MessageCreate, message []str
 	// msg := message[1:]
 	s.ChannelMessageSend(chanID, strings.Join(message[1:], " "))
 	response = "Message relayed"
+	return response
+}
+
+// GetRaids is for retrieving x amount of raids from google calendar
+func GetRaids(s *discordgo.Session, m *discordgo.MessageCreate, message []string) (response string) {
+	l := LogInit("GetRaids-commands.go")
+	defer l.End()
+	var count int64
+	// l.InfoF("Get Raids: %s len(%d)", message, len(message))
+	if len(message) < 2 { // No raid amount provided
+		count = 4
+		l.InfoF("No raid amount provided, defaulting to 4")
+	} else {
+		var err error
+		count, err = strconv.ParseInt(message[1], 10, 64)
+		if err != nil {
+			count = 4
+			l.ErrorF("Error converting calendar count to int64: %s", err.Error())
+		}
+		l.InfoF("Raid amount provided, setting to %d", count)
+	}
+	format := "Mon Jan 2 3:04 PM MST"
+	es := getEvents(cal, configuration.RaidGCAL, false, count, time.UnixDate)
+	for _, e := range es {
+		l.TraceF("Printing Event: %#+v", e)
+		response = fmt.Sprintf("%s%v (%v till %v)\n%v\n", response, e.Title, e.Start.Format(format), e.End.Format(format), e.Desc)
+		response = fmt.Sprintf("%s------------------------\n", response)
+	}
+	response = fmt.Sprintf("%s%s", response, configuration.RaidGCALLink)
 	return response
 }

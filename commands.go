@@ -708,6 +708,7 @@ func lookupPlayerSpell(player, class, spell string) (bool, string, error) { // T
 		return false, "Unable to retrieve data at this time", errors.New("Unable to retrieve data from sheet")
 		// log.Fatalf("Unable to retrieve data from sheet: %v", err) // TODO: Gracefully fail
 	}
+	player = strings.ToLower(player)
 
 	if len(resp.Values) == 0 {
 		l.ErrorF("No data found in response: %v", resp)
@@ -720,7 +721,9 @@ func lookupPlayerSpell(player, class, spell string) (bool, string, error) { // T
 			}
 			if i == configuration.SpellSheetHeaderRow { // header row, find player
 				for col, match := range row {
-					if match == player {
+					sMatch := fmt.Sprintf("%v", match)
+					sMatch = strings.ToLower(sMatch)
+					if sMatch == player {
 						playerColumn = col
 					}
 				}
@@ -729,6 +732,7 @@ func lookupPlayerSpell(player, class, spell string) (bool, string, error) { // T
 				}
 			}
 			spellName := fmt.Sprintf("%v", row[configuration.SpellSheetSpellCol])
+			spellName = strings.ToLower(spellName)
 			if i > 2 && strings.Contains(spellName, spell) { // if the row containing spell names matches the searched for spell // TODO: We need to do an exact match cause mage spells are DUMB
 				col, err := ColumnNumberToName(playerColumn + 1)
 				if err != nil {
@@ -755,6 +759,7 @@ func GetPlayerSpell(s *discordgo.Session, m *discordgo.MessageCreate, message []
 		l.InfoF("Player: %s = %+v", message[1], player)
 		// spellString := message[1:]
 		spellString := strings.Join(message[2:], " ")
+		spellString = strings.ToLower(spellString)
 		hasSpell, _, err := lookupPlayerSpell(message[1], player.class, spellString)
 		if err != nil {
 			l.ErrorF("Error lookup up spell: %s\n", err.Error())
@@ -812,6 +817,7 @@ func SetPlayerSpell(s *discordgo.Session, m *discordgo.MessageCreate, message []
 		l.InfoF("Player: %s = %+v", message[1], player)
 		// spellString := message[1:]
 		spellString := strings.Join(message[2:], " ")
+		spellString = strings.ToLower(spellString)
 		_, cell, err := lookupPlayerSpell(message[1], player.class, spellString)
 		if err != nil {
 			l.ErrorF("Error lookup up spell: %s\n", err.Error())
@@ -899,6 +905,9 @@ func GetRaids(s *discordgo.Session, m *discordgo.MessageCreate, message []string
 		l.InfoF("Raid amount provided, setting to %d", count)
 	}
 	format := "Mon Jan 2 3:04 PM MST"
+	if count > 10 {
+		count = 10
+	}
 	es := getEvents(cal, configuration.RaidGCAL, false, count, time.UnixDate)
 	for _, e := range es {
 		l.TraceF("Printing Event: %#+v", e)

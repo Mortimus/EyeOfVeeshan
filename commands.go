@@ -33,7 +33,7 @@ type BotCommand struct {
 
 var botCommands []BotCommand
 
-func init() {
+func initBotCommands() {
 	// Seed that number generator
 	rand.Seed(time.Now().UnixNano())
 
@@ -162,6 +162,15 @@ func init() {
 		hidden:      configuration.CommRaidCalHidden,
 	}
 	botCommands = append(botCommands, raidCommand)
+	dkpTenCommand := BotCommand{
+		command:     configuration.CommDKPTenCommand,
+		help:        configuration.CommDKPTenHelp,
+		action:      LookupDKPByTopTen,
+		dmOnly:      configuration.CommDKPTenDMOnly,
+		priviledged: configuration.CommDKPTenPriv,
+		hidden:      configuration.CommDKPTenHidden,
+	}
+	botCommands = append(botCommands, dkpTenCommand)
 	//------------------------------------------------
 	// changeConfig := BotCommand{
 	// 	command:     "!config",
@@ -186,9 +195,9 @@ func runCommand(s *discordgo.Session, m *discordgo.MessageCreate, message []stri
 	l := LogInit("runCommand-commands.go")
 	defer l.End()
 	if len(message) > 0 && len(message[0]) > 0 && message[0][0] == '!' { // Command attempted
-		l.InfoF("Command: %s attempted by %v", message, m.Author)
+		l.TraceF("Command: %s attempted by %v", message, m.Author)
 		for _, command := range botCommands {
-			// log.Printf("Command: %s vs message[0]: %s", command.command, message[0])
+			log.Printf("Command: %s vs message[0]: %s", command.command, message[0])
 			if command.command == strings.ToLower(message[0]) { // Command found!
 				l.InfoF("Command: %s matches %s", strings.ToLower(message[0]), command.command)
 				if command.dmOnly && !ComesFromDM(s, m) {
@@ -222,7 +231,7 @@ func Help(s *discordgo.Session, m *discordgo.MessageCreate, message []string) (r
 	return response
 }
 
-const unRestrictedConfig = 14
+// const unRestrictedConfig = 14
 
 // ChangeConfig lets priv modify configuration
 // func ChangeConfig(s *discordgo.Session, m *discordgo.MessageCreate, message []string) (response string) {
@@ -352,33 +361,8 @@ func LookupDKPByClass(s *discordgo.Session, m *discordgo.MessageCreate, message 
 		} else {
 			result = lookupPlayersByClass(message[1])
 		}
-		// l.TraceF("DKP Pre-sort: %#+v\n", result)
 		sort.Sort(sort.Reverse(byDKP(result)))
-
-		// sort.SliceStable(result, func(i, j int) bool {
-		// 	if result[i].dkp == "" {
-		// 		result[i].dkp = "0"
-		// 	}
-		// 	if result[j].dkp == "" {
-		// 		result[j].dkp = "0"
-		// 	}
-		// 	iDKP, err := strconv.Atoi(result[i].dkp)
-		// 	if err != nil {
-		// 		return false
-		// 	}
-		// 	jDKP, err := strconv.Atoi(result[j].dkp)
-		// 	if err != nil {
-		// 		return false
-		// 	}
-		// 	l.TraceF("iName: %s iDKP: %s jName: %s jDKP: %s\n", result[i].name, result[i].dkp, result[j].name, result[j].dkp)
-		// 	l.TraceF("Less than?: %b", iDKP < jDKP)
-		// 	return iDKP < jDKP
-		// })
-		// l.TraceF("DKP Post-sort: %#+v\n", result)
 		for _, res := range result {
-			// if res.dkp == "" {
-			// 	res.dkp = "0"
-			// }
 			response = fmt.Sprintf("%s%s(%s):\t%d\n", response, res.name, res.rank, res.dkp)
 		}
 		return response
@@ -386,6 +370,94 @@ func LookupDKPByClass(s *discordgo.Session, m *discordgo.MessageCreate, message 
 		l.ErrorF("DKP command ran without a player: %s", message)
 	}
 	return ""
+}
+
+// LookupDKPByTopTen find the top ten DKP holders on the known google spreadsheet
+func LookupDKPByTopTen(s *discordgo.Session, m *discordgo.MessageCreate, message []string) (response string) {
+	l := LogInit("LookupDKPByTopTen-commands.go")
+	defer l.End()
+	l.TraceF("Looking up dkp for top ten\n")
+	result := lookupAllPlayer()
+	sort.Sort(sort.Reverse(byDKP(result)))
+	var topTen []Player
+	if len(result) > 10 {
+		topTen = result[0:10] // Why this goes to 10 is beyond me
+	} else {
+		topTen = result
+	}
+	for _, res := range topTen {
+		response = fmt.Sprintf("%s%s(%s):\t%d\n", response, res.name, res.rank, res.dkp)
+	}
+	return response
+}
+
+func lookupAllPlayer() []Player {
+	l := LogInit("lookupAllPlayer-commands.go")
+	defer l.End()
+	var players []Player
+	l.TraceF("Finding all players\n")
+
+	spreadsheetID := configuration.DKPSheetURL
+	readRange := configuration.DKPSRosterSheetName
+	resp, err := srv.Spreadsheets.Values.Get(spreadsheetID, readRange).Do()
+	if err != nil {
+		l.ErrorF("Unable to retrieve data from sheet: %v", err)
+		return []Player{}
+		// log.Fatalf("Unable to retrieve data from sheet: %v", err)
+	}
+
+	if len(resp.Values) == 0 {
+		l.ErrorF("No player lookup response: %v", resp)
+		// log.Println("No data found.")
+	} else {
+		// var lastClass string
+		for _, row := range resp.Values {
+			// pulledClass := fmt.Sprintf("%s", row[configuration.DKPSRosterSheetClassCol])
+			// pulledClass = strings.ToLower(pulledClass)
+			if row[configuration.DKPSRosterSheetPlayerCol] != "" { // No blank rows
+				player := Player{}
+				player.class = fmt.Sprintf("%v", row[configuration.DKPSRosterSheetClassCol])
+				player.rank = fmt.Sprintf("%v", row[configuration.DKPSRosterSheetRankCol])
+				player.name = fmt.Sprintf("%v", row[configuration.DKPSRosterSheetPlayerCol])
+				player.level = fmt.Sprintf("%v", row[configuration.DKPSRosterSheetLevelCol])
+				players = append(players, player)
+			}
+		}
+	}
+	readRange = configuration.DKPSheetName
+	resp2, err := srv.Spreadsheets.Values.Get(spreadsheetID, readRange).Do()
+	if err != nil {
+		l.ErrorF("Unable to retrieve data from sheet 2nd pass: %v", err)
+		return []Player{}
+		// log.Fatalf("Unable to retrieve data from sheet: %v", err)
+	}
+
+	if len(resp2.Values) == 0 {
+		l.ErrorF("No player lookup response: %v", resp)
+		// log.Println("No data found.")
+	} else {
+		var lastClass string
+		for _, row := range resp2.Values {
+			if row[configuration.DKPSheetClassCol] != "" {
+				lastClass = fmt.Sprintf("%s", row[configuration.DKPSheetClassCol])
+				lastClass = strings.ToLower(lastClass)
+			}
+			name := fmt.Sprintf("%v", row[configuration.DKPSheetNameCol])
+			index := findPlayerIndexInArray(name, &players)
+			if index < 0 {
+				continue // We don't know who the fuck this is
+			}
+			players[index].lastRaid = fmt.Sprintf("%v", row[configuration.DKPSheetLastRaidCol])
+			players[index].attendance = fmt.Sprintf("%v", row[configuration.DKPSheetAttendanceCol])
+			dkp, err := strconv.Atoi(strings.ReplaceAll(fmt.Sprintf("%v", row[configuration.DKPSheetDKPCol]), ",", ""))
+			if err != nil {
+				dkp = 0
+			}
+			players[index].dkp = dkp
+			continue
+		}
+	}
+	return players
 }
 
 func lookupPlayersByClass(tarClass string) []Player {

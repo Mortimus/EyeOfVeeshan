@@ -113,6 +113,11 @@ type Configuration struct {
 	CommRaidCalPriv            bool     `json:"CommRaidCalPriv"`     // Aradune Auctions krono API URL
 	CommRaidCalHidden          bool     `json:"CommRaidCalHidden"`   // Is the DKP by class command hidden
 	RaidGCALLink               string   `json:"RaidGCALLink"`        // URL to gcal for people to add
+	CommDKPTenCommand          string   `json:"CommDKPTenCommand"`   // Aradune Auctions krono API URL
+	CommDKPTenHelp             string   `json:"CommDKPTenHelp"`      // Aradune Auctions krono API URL
+	CommDKPTenDMOnly           bool     `json:"CommDKPTenDMOnly"`    // Aradune Auctions krono API URL
+	CommDKPTenPriv             bool     `json:"CommDKPTenPriv"`      // Aradune Auctions krono API URL
+	CommDKPTenHidden           bool     `json:"CommDKPTenHidden"`    // Is the DKP by class command hidden
 }
 
 func init() {

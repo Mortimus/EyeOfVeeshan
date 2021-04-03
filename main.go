@@ -192,6 +192,7 @@ func main() {
 	// daemon.SdNotify(false, "READY=1")
 
 	// Wait here until CTRL-C or other term signal is received.
+	initBotCommands()
 	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
 	l.InfoF("Bot is now running")
 	sc := make(chan os.Signal, 1)
@@ -308,7 +309,7 @@ func isPriviledged(s *discordgo.Session, userID string) bool {
 }
 
 func connectDB() *sql.DB {
-	db, err := sql.Open("mysql", "root:friezor54@/peq")
+	db, err := sql.Open("mysql", "root:IGNOREME@/peq")
 	if err != nil {
 		panic(err)
 	}
